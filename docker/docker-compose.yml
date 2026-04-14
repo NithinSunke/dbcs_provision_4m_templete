@@ -1,0 +1,16 @@
+services:
+  dbcs-app:
+    container_name: dbcs-app
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: dbcs-provisioning-app:latest
+    ports:
+      - "8080:8080"
+    env_file:
+      - ../.env
+    volumes:
+      - ../data:/app/data
+      - ../keys:/app/keys
+      - ${USERPROFILE}/.oci:/oci-host:ro
+    restart: unless-stopped

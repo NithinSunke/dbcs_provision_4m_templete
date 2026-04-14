@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DBCS Provisioning Review Portal</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+  <div class="page-bg"></div>
+  <main class="container">
+    <section class="card hero">
+      <h1>DBCS Provisioning Review Portal</h1>
+      <p>Upload your Excel template, review parsed rows, and approve to start deployment.</p>
+
+      {% if flash_message %}
+      <div class="alert {{ flash_level }}">{{ flash_message }}</div>
+      {% endif %}
+
+      <form action="{{ url_for('upload_excel') }}" method="post" enctype="multipart/form-data" class="upload-row">
+        <input type="file" name="excel_file" accept=".xlsx,.xlsm" required />
+        <button type="submit">Import Excel</button>
+      </form>
+
+      <p class="note">Safety default: <code>DRY_RUN=true</code> (simulated deployment)</p>
+    </section>
+
+    {% for batch in batches %}
+    <section class="card">
+      <div class="batch-head">
+        <div>
+          <h2>Batch {{ loop.index }} <span class="mono">{{ batch.id }}</span></h2>
+          <p>Created: {{ batch.created_at }} UTC</p>
+          <p>Status: <strong>{{ batch.status }}</strong> | Approval: <strong>{{ batch.approval }}</strong></p>
+        </div>
+        <div class="actions">
+          <form action="{{ url_for('approve_batch', batch_id=batch.id) }}" method="post">
+            <button type="submit" {% if batch.approval == 'APPROVED' or batch.validation.errors %}disabled{% endif %}>Approve & Deploy</button>
+          </form>
+          <form action="{{ url_for('delete_batch', batch_id=batch.id) }}" method="post">
+            <button type="submit" class="danger">Delete</button>
+          </form>
+        </div>
+      </div>
+
+      {% if batch.validation.errors %}
+      <div class="alert error">
+        <h3>Validation Errors</h3>
+        <ul>
+          {% for err in batch.validation.errors %}
+          <li>{{ err }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+
+      {% if batch.validation.warnings %}
+      <div class="alert warn">
+        <h3>Validation Warnings</h3>
+        <ul>
+          {% for warn in batch.validation.warnings %}
+          <li>{{ warn }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+
+      {% if batch.rows %}
+      <div class="table-wrap">
+        {% set first_row = batch.rows[0] %}
+        {% set hidden_keys = ['_template_type', 'row_status', 'row_message', '_source_column'] %}
+        {% if first_row.get('_template_type') == 'oracle_key_value' %}
+          {% for row in batch.rows %}
+          <section class="entry-card">
+            <h3>Database {{ loop.index }}{% if row.get('display_name') %}: {{ row.get('display_name') }}{% endif %}</h3>
+            <table class="kv-table">
+              <thead>
+                <tr>
+                  <th>Field</th>
+                  <th>Value</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for key, val in row.items() %}
+                {% if key not in hidden_keys %}
+                <tr>
+                  <td class="kv-key">{{ key }}</td>
+                  <td class="kv-val">{% if 'password' in key %}******{% else %}{{ val }}{% endif %}</td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+              </tbody>
+            </table>
+          </section>
+          {% endfor %}
+        {% else %}
+        <table>
+          <thead>
+            <tr>
+              {% for key in first_row.keys() %}
+              {% if key not in hidden_keys %}
+              <th>{{ key }}</th>
+              {% endif %}
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in batch.rows %}
+            <tr>
+              {% for key in first_row.keys() %}
+              {% if key not in hidden_keys %}
+              <td>{% if 'password' in key %}******{% else %}{{ row.get(key, '') }}{% endif %}</td>
+              {% endif %}
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      {% if batch.deploy.results %}
+      <h3>Deployment Results</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Row</th>
+              <th>Status</th>
+              <th>DB System OCID</th>
+              <th>Message</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for result in batch.deploy.results %}
+            <tr>
+              <td>{{ result.row }}</td>
+              <td>{{ result.status }}</td>
+              <td class="mono">{{ result.db_system_id }}</td>
+              <td>{{ result.message }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+    </section>
+    {% endfor %}
+  </main>
+</body>
+</html>

@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+.env
+data/
+keys/
+app.out.log
+app.err.log
+
+*.xlsx
+*.xlsm
+*.doc
+
+.DS_Store
